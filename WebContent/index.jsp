@@ -20,8 +20,8 @@
 		<button type="submit">下载文件</button>
 	</form>
 	
-	<form action="getexcelfile">
-		<input type="file" name="filename" >
+	<form action="getexcelfile" enctype="multipart/form-data" method="post">
+		<input type="file" name="file" >
 		<button type="submit">提交</button>
 	</form>
 </body>

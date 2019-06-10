@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.pojo.User;
 import com.service.UserService;
@@ -80,21 +81,46 @@ public class ExcleData {
 			System.out.println("服务器上文件删除失败！！！");
 		}
 	}
-	
+
 	/**
 	 * 从 excel 中添加数据到数据库中
+	 * 
 	 * @param filename
 	 * @param request
 	 * @throws IOException
 	 * @throws BiffException
 	 */
-	@RequestMapping(value="/getexcelfile",produces="application/json;charset=utf-8")
+	@RequestMapping(value = "/getexcelfile", produces = "application/json;charset=utf-8")
 	@ResponseBody
-	public String getExcelFile(String filename, HttpServletRequest request) throws IOException, BiffException {
+	public String getExcelFile(MultipartFile file, HttpServletRequest request) throws IOException, BiffException {
+		/** 临时存放 excel 文件 **/
+		// 设置相对路径
+		String realPath = request.getSession().getServletContext().getRealPath("/upload");
+		System.out.println(" realPath:" + realPath);
+		// 存放 excel 文件的绝对路径
+		String uploadPath = "";
+		// 获取文件的格式
+		String extention = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf(".") + 1);
+		// 对格式进行筛选
+		// 仅支持上传 excel 文件，xls 或 xlsx
+		if (extention.equalsIgnoreCase("xls") || extention.equalsIgnoreCase("xlsx")) {
+			File f = new File(realPath);// 在路径下创建文件夹
+			String fileName = file.getOriginalFilename();// 获取上传文件原命名
+			uploadPath = realPath + File.separator + fileName;// 拼接上传路径
+			System.out.println(" uploadPath:" + uploadPath);
+			// 如果指定文件 upload 不存在，则先新建文件夹
+			if (!f.exists()) {
+				f.mkdirs();
+			}
+			file.transferTo(new File(uploadPath));// 文件的传输
+		} else {
+			System.out.println("上传文件格式不对！");
+		}
 
+		/** 读取临时存放的 excel 文件，并将数据导入数据库 **/
 		// 获取 excel 表的文件流
-		File file = new File("C:/Users/yy/Desktop/test.xls");
-		Workbook book = Workbook.getWorkbook(file);
+		File excelFile = new File(uploadPath);
+		Workbook book = Workbook.getWorkbook(excelFile);
 		// 获取 sheet 表
 		// 可以使用下面的写法，"test0" 表示 sheet 表的名字
 		// Sheet rs = book.getSheet("test0");
@@ -103,10 +129,8 @@ public class ExcleData {
 		int columns = rs.getColumns();// 得到所有的列
 		int rows = rs.getRows();// 得到所有的行
 		System.out.println(" columns:" + columns + " rows:" + rows);
-
-		List<User> list = new ArrayList<>();
-
-		// 将 excel 数据存放到 List<User>
+		List<User> list = new ArrayList<>();// 临时存放 excel 数据
+		/** 将 excel 数据存放到 List<User> **/
 		// i=2:表示第三行
 		for (int i = 2; i < rows; i++) {
 			User user = new User();
@@ -127,10 +151,9 @@ public class ExcleData {
 				list.add(user);
 			}
 		}
-
+		/** 将 List<User> 中的数据插入或者更新到数据库 **/
 		User userOne = new User();
 		User tempUser = new User();
-		// 将 List<User> 中的数据插入或者更新到数据库
 		for (int k = 0; k < list.size(); k++) {
 			userOne = list.get(k);
 			tempUser = userService.selectUserById(userOne.getId());
@@ -144,7 +167,14 @@ public class ExcleData {
 				userService.insertUser(userOne);
 			}
 		}
-		
+
+		/** 删除临时存放的 excel 文件 **/
+		boolean deleteFileState = MakeExcel.deleteFile(realPath + "/test.xls");
+		if (deleteFileState) {
+			System.out.println("服务器上文件删除成功！！！");
+		} else {
+			System.out.println("服务器上文件删除失败！！！");
+		}
 		return " excel 数据更新到数据库成功";
 	}
 }
